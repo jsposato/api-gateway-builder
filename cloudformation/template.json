@@ -3,31 +3,31 @@
   "Description": "Bring up the Serverless TODO infrastructure",
   "Parameters": {
     "Environment": {
-      "Description": "Select environment DEV, QA, PROD",
+      "Description": "Select environment",
       "Type": "String",
-      "Default": "ENVIRONMENT_NOT_SET"
+      "Default": "dev",
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "prod"
+      ]
     },
-    "CFBucket": {
-      "Description": "Bucket where templates/Swagger doc are located",
-      "Type": "String",
-      "Default": "CFBUCKET_NOT_SET"
+    "LambdaRouterName": {
+      "Description": "What you would like your lambda router function name to be (will be combined with envrionment)?",
+      "Type": "String"
     }
   },
   "Resources": {
     "RestAPI": {
       "Type": "AWS::ApiGateway::RestApi",
       "Properties": {
-        "BodyS3Location": {
-          "Bucket" : {"Ref": "CFBucket"},
-          "Key": "swagger.json"
-        },
-        "Description": "Serverless TODO API",
+        "Description": "Base API",
         "FailOnWarnings": true,
         "Name": {
           "Fn::Join": [
             "",
             [
-              "Serverless TODO - ",
+              "AGB Gateway - ",
               {
                 "Ref": "Environment"
               }
@@ -41,87 +41,122 @@
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
-          "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
         },
         "Path": "/",
-        "Policies": [{
-          "PolicyName": "root",
-          "PolicyDocument": {
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Sid": "Stmt1428341300017",
-                "Action": [
-                  "dynamodb:DeleteItem",
-                  "dynamodb:GetItem",
-                  "dynamodb:PutItem",
-                  "dynamodb:Query",
-                  "dynamodb:Scan",
-                  "dynamodb:UpdateItem"
-                ],
-                "Effect": "Allow",
-                "Resource": "*"
-              },
-              {
-                "Sid": "",
-                "Resource": "*",
-                "Action": [
-                  "logs:CreateLogGroup",
-                  "logs:CreateLogStream",
-                  "logs:PutLogEvents"
-                ],
-                "Effect": "Allow"
-              }
-            ]
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "Stmt1428341300017",
+                  "Action": [
+                    "dynamodb:DeleteItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:Query",
+                    "dynamodb:Scan",
+                    "dynamodb:UpdateItem"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                },
+                {
+                  "Sid": "",
+                  "Resource": "*",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow"
+                }
+              ]
+            }
           }
-        }]
+        ]
       }
     },
-    "GETLambda": {
-      "Type" : "AWS::Lambda::Function",
-      "Properties" : {
-        "Code" : {
-          "ZipFile":  { "Fn::Join": ["", [
-            "\"use strict\";",
-            "var aws = require(\"aws-sdk\");",
-            "var dynamodb = new aws.DynamoDB();",
-            "var response = \"\";",
-            "exports.handler = function(event, context, callback) {",
-            "   console.log(\"EVENT: \");",
-            "   console.log(JSON.stringify(event, null, 2));",
-            "   var tableName = \"serverless_todo_DEV\";",
-            "   var dataSize = event.params.querystring.size;",
-            "   dynamodb.scan({",
-            "      TableName : tableName,",
-            "      Limit : dataSize",
-            "   }, function(err, data) {",
-            "      if (err) {",
-            "         context.done('error','reading dynamodb failed: '+err);",
-            "      }",
-            "      response = data.Items;",
-            "      console.log(response)",
-            "      callback(null, response",
-            "   });",
-            "};"
-          ]]}
+    "RouterLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "\"use strict\";",
+                "var aws = require(\"aws-sdk\");",
+                "var dynamodb = new aws.DynamoDB();",
+                "var response = \"\";",
+                "exports.handler = function(event, context, callback) {",
+                "   console.log(\"EVENT: \");",
+                "   console.log(JSON.stringify(event, null, 2));",
+                "   var tableName = \"serverless_todo_DEV\";",
+                "   var dataSize = event.params.querystring.size;",
+                "   dynamodb.scan({",
+                "      TableName : tableName,",
+                "      Limit : dataSize",
+                "   }, function(err, data) {",
+                "      if (err) {",
+                "         context.done('error','reading dynamodb failed: '+err);",
+                "      }",
+                "      response = data.Items;",
+                "      console.log(response)",
+                "      callback(null, response",
+                "   });",
+                "};"
+              ]
+            ]
+          }
         },
-        "Description" : "GET all todos",
-        "FunctionName" : {
-          "Fn::Join" : [
+        "Description": "Function to route all RestAPI calls",
+        "FunctionName": {
+          "Fn::Join": [
             "",
             [
-              "todo_get-",
+              {"Ref": "LambdaRouterName"},
+              "_",
               {
                 "Ref": "Environment"
               }
             ]
           ]
         },
-        "Handler" : "index.handler",
-        "MemorySize" : 128,
-        "Role" :  {"Fn::GetAtt": ["LambdaRole", "Arn"]},
-        "Runtime" : "nodejs",
-        "Timeout" : 60
+        "Handler": "index.handler",
+        "MemorySize": 512,
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs4.3",
+        "Timeout": 60
+      }
+    },
+    "WidgetResource": {
+      "Type" : "AWS::ApiGateway::Resource",
+      "Properties" : {
+        "ParentId" : { "Fn::GetAtt": ["RestAPI", "RootResourceId"] },
+        "PathPart" : "widgets",
+        "RestApiId" : {
+          "Ref": "RestAPI"
+        }
       }
     },
     "GETMethod": {
@@ -130,23 +165,28 @@
         "AuthorizationType": "NONE",
         "HttpMethod": "GET",
         "Integration": {
-          "IntegrationHttpMethod" : "GET",
-          "Type" : "AWS",
-          "Uri" : {
+          "IntegrationHttpMethod": "GET",
+          "Type": "AWS",
+          "Uri": {
             "Fn::Join": [
               "",
               [
                 "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/",
-                {"Fn::GetAtt": [
-                  "GETLambda", "Arn"
-                ]},
+                {
+                  "Fn::GetAtt": [
+                    "RouterLambda",
+                    "Arn"
+                  ]
+                },
                 "/invocations"
               ]
             ]
           }
         },
-        "RestApiId": {"Ref": "RestAPI"},
-        "ResourceId": {"Fn::GetAtt": ["RestAPI", "RootResourceId"]}
+        "RestApiId": {
+          "Ref": "RestAPI"
+        },
+        "ResourceId": "widgets"
       }
     }
   },

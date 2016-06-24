@@ -3,7 +3,10 @@
 ## install the AWS CLI
 [Instructions](http://docs.aws.amazon.com/cli/latest/userguide/installing.html)
 
-## Run init.sh
+## Run template through the AWS Cloudformation console
+
+
+## Run init.sh (UNFINISHED)
 You will need to pass in the following parameters
 
 * `profile` - The AWS profile for your access key and secret key
