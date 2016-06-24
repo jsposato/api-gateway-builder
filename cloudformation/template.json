@@ -129,7 +129,9 @@
           "Fn::Join": [
             "",
             [
-              {"Ref": "LambdaRouterName"},
+              {
+                "Ref": "LambdaRouterName"
+              },
               "_",
               {
                 "Ref": "Environment"
@@ -150,11 +152,16 @@
       }
     },
     "WidgetResource": {
-      "Type" : "AWS::ApiGateway::Resource",
-      "Properties" : {
-        "ParentId" : { "Fn::GetAtt": ["RestAPI", "RootResourceId"] },
-        "PathPart" : "widgets",
-        "RestApiId" : {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "ParentId": {
+          "Fn::GetAtt": [
+            "RestAPI",
+            "RootResourceId"
+          ]
+        },
+        "PathPart": "widgets",
+        "RestApiId": {
           "Ref": "RestAPI"
         }
       }
@@ -186,7 +193,12 @@
         "RestApiId": {
           "Ref": "RestAPI"
         },
-        "ResourceId": "widgets"
+        "ResourceId": {
+          "Ref": "WidgetResource"
+        },
+        "MethodResponses": {
+          "StatusCode": "200"
+        }
       }
     }
   },
